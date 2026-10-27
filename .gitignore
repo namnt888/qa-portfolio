@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build
+.next/
+out/
+dist/
+build/
+
+# Test artifacts
+playwright-report/
+test-results/
+e2e/.bdd-gen/
+e2e/.auth/
+
+# QA scratch
+.qa/manifests/
+
+# Environment
+.env.local
+.env.staging.local
+.env*.local
+
+# OS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/

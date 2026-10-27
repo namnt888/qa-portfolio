@@ -1,0 +1,45 @@
+name: E2E Staging
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '37 3 * * *'
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    if: ${{ vars.STAGING_E2E_ENABLED == 'true' }}
+    env:
+      SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SERVICE_ROLE_KEY }}
+      PROD_PROJECT_REF: ${{ secrets.PROD_PROJECT_REF }}
+      E2E_BASE_URL: http://localhost:3000
+      E2E_PASSCODE: ${{ secrets.E2E_PASSCODE }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Preflight — guard against prod
+        run: node scripts/qa/db-guard.mjs --mode=e2e
+      - name: Seed
+        run: node scripts/qa/seed.mjs --scenario=transactions --run-id=ci-${{ github.run_id }}
+      - name: Start app
+        run: pnpm start &
+      - name: Run E2E
+        run: npx playwright test
+      - name: Cleanup
+        if: always()
+        run: node scripts/qa/cleanup.mjs --run-id=ci-${{ github.run_id }}
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
