@@ -1,26 +1,25 @@
 # Dependencies
 node_modules/
-.pnpm-store/
 
-# Build
-.next/
-out/
+# Build output
 dist/
 build/
+out/
 
-# Test artifacts
+# Playwright
 playwright-report/
 test-results/
-e2e/.bdd-gen/
-e2e/.auth/
+blob-report/
+tests/.auth/
+tests/.bdd-gen/
+
+# Environment — only the *.example file is committed
+.env
+.env.local
+.env.*.local
 
 # QA scratch
 .qa/manifests/
-
-# Environment
-.env.local
-.env.staging.local
-.env*.local
 
 # OS
 .DS_Store

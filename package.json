@@ -2,19 +2,31 @@
   "name": "qa-portfolio",
   "version": "1.0.0",
   "private": true,
-  "description": "QA portfolio — test artifacts, Playwright framework, k6 performance, CI/CD",
+  "description": "QA portfolio: Playwright + TypeScript suite, API tests, BDD, test plan and CI, runnable against a bundled demo app",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "test": "vitest run",
-    "test:e2e": "playwright test",
-    "lint": "eslint",
-    "qa:seed": "node scripts/qa/seed.mjs",
-    "qa:cleanup": "node scripts/qa/cleanup.mjs",
-    "qa:guard": "node scripts/qa/db-guard.mjs"
+    "demo": "node demo/server.mjs",
+    "guard": "node scripts/qa/db-guard.mjs",
+    "test": "playwright test",
+    "test:smoke": "playwright test --project=smoke",
+    "test:regression": "playwright test --project=regression",
+    "test:api": "playwright test --project=api",
+    "test:nonfunctional": "playwright test --project=nonfunctional",
+    "test:list": "playwright test --list",
+    "test:report": "playwright show-report",
+    "bdd:gen": "bddgen --config playwright.bdd.config.ts",
+    "bdd:test": "bddgen --config playwright.bdd.config.ts && playwright test --config=playwright.bdd.config.ts",
+    "typecheck": "tsc --noEmit",
+    "install:browsers": "playwright install chromium"
   },
   "devDependencies": {
-    "@playwright/test": "^1.48.0",
-    "eslint": "^8.57.0",
-    "vitest": "^1.6.0",
-    "k6": "^0.47.0"
+    "@playwright/test": "^1.56.0",
+    "@types/node": "^24.0.0",
+    "dotenv": "^17.0.0",
+    "playwright-bdd": "^9.2.1",
+    "typescript": "^5.9.0"
   }
 }

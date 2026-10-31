@@ -1,4 +1,7 @@
-name: E2E Staging
+name: E2E against staging
+
+# Manual or nightly. Skipped unless the repository has STAGING_E2E_ENABLED=true and the
+# three secrets below. Never point this at production: db-guard fails the job first.
 
 on:
   workflow_dispatch:
@@ -9,36 +12,42 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     if: ${{ vars.STAGING_E2E_ENABLED == 'true' }}
+    timeout-minutes: 20
     env:
-      SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SERVICE_ROLE_KEY }}
+      E2E_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+      E2E_PASSCODE: ${{ secrets.STAGING_E2E_PASSCODE }}
+      PROD_BASE_URL: ${{ secrets.PROD_BASE_URL }}
       PROD_PROJECT_REF: ${{ secrets.PROD_PROJECT_REF }}
-      E2E_BASE_URL: http://localhost:3000
-      E2E_PASSCODE: ${{ secrets.E2E_PASSCODE }}
     steps:
       - uses: actions/checkout@v4
+
       - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
+
       - run: pnpm install --frozen-lockfile
-      - name: Preflight — guard against prod
-        run: node scripts/qa/db-guard.mjs --mode=e2e
-      - name: Seed
-        run: node scripts/qa/seed.mjs --scenario=transactions --run-id=ci-${{ github.run_id }}
-      - name: Start app
-        run: pnpm start &
-      - name: Run E2E
-        run: npx playwright test
-      - name: Cleanup
-        if: always()
-        run: node scripts/qa/cleanup.mjs --run-id=ci-${{ github.run_id }}
+
+      - name: Production guard
+        run: pnpm guard
+
+      - run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run suite
+        run: pnpm test
+
+      - name: Run BDD scenarios
+        run: pnpm bdd:test
+
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-report
+          name: e2e-staging-report
           path: |
             playwright-report/
             test-results/

@@ -1,44 +1,65 @@
-# Test Cases — Giao dịch tài chính (40+ case)
+# Test Cases — Ledger
 
-Dưới đây là danh sách test case mẫu, đã sanitize (không tên người thật, không số tiền thật).
-Mỗi case có ID, mức ưu tiên, và liên kết đến requirement.
+Every case below is written against the bundled demo app. `Automated in` names the
+spec that proves it, or `manual` when a human has to look. A case marked `manual`
+is not a gap in the suite so much as a decision that the check does not pay for
+itself as code.
 
-## Traceability matrix
+Techniques are named so the reasoning is visible: **EP** equivalence partitioning,
+**BVA** boundary value analysis, **DT** decision table, **ST** state transition,
+**EG** error guessing.
 
-| TC ID | Requirement | Loại | Ưu tiên | Automation |
-|---|---|---|---|---|
-| TC-01 | Tạo giao dịch chi thành công | Functional | P1 | ✅ |
-| TC-02 | Tạo giao dịch thu thành công | Functional | P1 | ✅ |
-| TC-03 | Giao dịch 0 đồng | Boundary | P2 | ✅ |
-| TC-04 | Giao dịch giá trị max | Boundary | P2 | ✅ |
-| TC-05 | Nhập notes trống | Negative | P2 | ✅ |
-| TC-06 | Chọn account không tồn tại | Negative | P2 | ✅ |
-| TC-07 | Cashback 8% share tính đúng | Functional | P1 | ✅ |
-| TC-08 | Cashback min_spend chưa đạt | Boundary | P2 | ✅ |
-| TC-09 | Cashback cap đạt ngưỡng | Boundary | P2 | ✅ |
-| TC-10 | waiting_refund không lên sheet | Functional | P1 | ✅ |
-| TC-11 | Công nợ lent + borrowed | Functional | P1 | ✅ |
-| TC-12 | Rollover công nợ sang cycle mới | Functional | P2 | ✅ |
-| TC-13 | Đối soát 2 chiều DB ↔ Sheet | Functional | P1 | ✅ |
-| TC-14 | Cột K recon trắng thì xóa DB recon | Negative | P2 | ✅ |
-| TC-15 | Đăng nhập đúng passcode | Functional | P1 | ✅ |
-| TC-16 | Đăng nhập sai passcode | Negative | P1 | ✅ |
-| TC-17 | Session hết hạn | Negative | P2 | ✅ |
-| TC-18 | Export sheet thành công | Functional | P2 | ✅ |
-| TC-19 | Export sheet thất bại (mất mạng) | Negative | P2 | ✅ |
-| TC-20 | Batch transfer nhiều giao dịch | Functional | P2 | ✅ |
+## Functional
 
-... (tổng cộng 40+ case, xem chi tiết trong `docs/test-cases.md` của money-gemini)
+| ID | Area | Case | Technique | Priority | Automated in |
+|---|---|---|---|---|---|
+| TC-01 | Sign-in | Correct passcode opens the ledger | EP | P1 | `smoke/login.spec.ts` |
+| TC-02 | Sign-in | Wrong passcode shows an inline error and stays on the form | EP | P1 | `smoke/login.spec.ts` |
+| TC-03 | Sign-in | Empty passcode is refused by the API | BVA | P2 | `api/transactions.api.spec.ts` |
+| TC-04 | Session | Sign-out returns to the passcode form | ST | P2 | `regression/transactions.spec.ts` |
+| TC-05 | Ledger | All seeded rows render after sign-in | — | P1 | `smoke/transactions.spec.ts` |
+| TC-06 | Ledger | Balance is formatted as currency, never a raw float | EP | P1 | `smoke/transactions.spec.ts` |
+| TC-07 | Ledger | Filter `expense` shows expenses and no income | DT | P1 | `smoke/transactions.spec.ts` |
+| TC-08 | Ledger | Filter `income` shows income and no expenses | DT | P1 | `api/transactions.api.spec.ts`, `features/ledger.feature` |
+| TC-09 | Ledger | Empty ledger shows the empty state instead of a blank table | EG | P2 | manual |
+| TC-10 | Create | Valid expense appears at the top with a formatted amount | — | P1 | `regression/transactions.spec.ts` |
+| TC-11 | Create | Form clears after a successful save | — | P2 | `regression/transactions.spec.ts` |
+| TC-12 | Create | Amount `0` is refused with a field message | BVA | P1 | `regression/transactions.spec.ts` |
+| TC-13 | Create | Negative amount is refused by the API | BVA | P1 | `api/transactions.api.spec.ts` |
+| TC-14 | Create | Non-numeric amount is refused before the request | EP | P2 | `regression/transactions.spec.ts` |
+| TC-15 | Create | Three decimal places are refused | BVA | P2 | `api/transactions.api.spec.ts` |
+| TC-16 | Create | Note longer than 120 characters is refused | BVA | P2 | `api/transactions.api.spec.ts` |
+| TC-17 | Create | Unknown `type` is refused | EP | P2 | `api/transactions.api.spec.ts` |
+| TC-18 | Create | A repeated `Idempotency-Key` returns `409`, not a second row | EG | P1 | `api/transactions.api.spec.ts` |
+| TC-19 | Create | Two concurrent submits with the same key create one row | EG | P1 | manual (see note) |
+| TC-20 | Rendering | A note containing markup renders as text | EG | P1 | `regression/transactions.spec.ts` |
+| TC-21 | API | Reading the ledger without a token returns `401` | — | P1 | `api/transactions.api.spec.ts` |
+| TC-22 | API | Deleting an unknown id returns `404`; deleting twice returns `404` the second time | ST | P2 | `api/transactions.api.spec.ts` |
 
-## Mẫu chi tiết một case
+**TC-19 note.** The automated case covers a *sequential* retry. True concurrency
+needs a barrier so both requests are in flight at once; that is written up as a
+manual/exploratory case rather than faked with `Promise.all`, which does not
+guarantee overlap on a single-threaded server.
 
-### TC-03: Giao dịch 0 đồng
-- **Mục đích:** Xác nhận hệ thống chấp nhận giao dịch giá trị 0 (ví dụ: giao dịch khuyến mãi miễn phí).
-- **Bước thực hiện:**
-  1. Mở trang giao dịch
-  2. Nhập số tiền: 0
-  3. Chọn account, category
-  4. Nhấn "Thêm giao dịch"
-- **Kết quả mong đợi:** Giao dịch được tạo thành công, hiển thị trong bảng với số tiền 0.
-- **Kết quả thực tế:** (điền khi chạy)
-- **Trạng thái:** Pass / Fail / Blocked
+## Non-functional
+
+| ID | Area | Case | Technique | Priority | Automated in |
+|---|---|---|---|---|---|
+| TC-23 | Responsive | No horizontal scrolling at 412px | — | P2 | `nonfunctional/responsive.spec.ts` |
+| TC-24 | Responsive | Primary action stays in the viewport with the keyboard open | EG | P2 | `nonfunctional/responsive.spec.ts` |
+| TC-25 | Accessibility | Every form control has an accessible name | — | P1 | `nonfunctional/accessibility.spec.ts` |
+| TC-26 | Accessibility | The table exposes four column headers | — | P2 | `nonfunctional/accessibility.spec.ts` |
+| TC-27 | Accessibility | Validation errors are announced as alerts | — | P2 | `nonfunctional/accessibility.spec.ts` |
+| TC-28 | Performance | Ledger response p95 stays under 2000 ms at 50 VUs | — | P3 | `perf/smoke.js` (manual) |
+| TC-29 | Compatibility | Ledger renders correctly in Chromium, Firefox and WebKit | — | P3 | manual |
+| TC-30 | Localisation | Amounts stay unambiguous with a vi-VN locale | EG | P2 | manual — see `bug-reports/BUG-002` |
+
+## Traceability summary
+
+| Requirement | Cases |
+|---|---|
+| Unauthenticated users cannot see the ledger | TC-02, TC-03, TC-21 |
+| The ledger reflects recorded transactions | TC-05, TC-10, TC-11, TC-18 |
+| Invalid input never creates a row | TC-12–TC-17 |
+| User content is rendered safely | TC-20 |
+| The ledger is usable on a phone and with a screen reader | TC-23–TC-27 |

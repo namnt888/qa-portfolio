@@ -1,17 +1,57 @@
 name: PR Gate
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: pr-gate-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
+  gate:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+
       - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm test
-      - run: pnpm lint
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Production guard self-check
+        run: pnpm guard
+
+      - name: Verify the suite is discoverable
+        run: pnpm test:list
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run suite (demo app starts automatically)
+        run: pnpm test
+
+      - name: Generate and run BDD scenarios
+        run: pnpm bdd:test
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
